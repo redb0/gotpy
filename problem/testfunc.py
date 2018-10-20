@@ -1,16 +1,9 @@
 import numpy as np
-from typing import List, Union
-
-# Numb = Union[int, float]
-# ListNumb = List[Numb]
-# Matrix = List[ListNumb]
 
 
 class TestFunction:
-    def __init__(self, idx=0, t='',
-                 c=None, f=None, p=None, a=None, down=None, high=None, an=None,
-                 real_min=None, real_max=None, min_val=0, max_val=0):
-        self._func = None
+    def __init__(self, idx=0, t='', c=None, f=None, p=None, a=None, down=None, high=None, an=None,
+                 real_min=None, real_max=None, min_val=None, max_val=None):
         self._idx = idx
         self._dim = len(c[0])
         self._num_extrema = len(c)
@@ -21,19 +14,24 @@ class TestFunction:
         self._coef_abruptness = a
         self._down = down
         self._high = high
-        self._amp_noise = an
         self._real_min = real_min
         self._real_max = real_max
         self._min_val = min_val
         self._max_val = max_val
+        if an is not None:
+            self._amp_noise = an
+        elif (self._min_val is not None) and (self._max_val is not None):
+            self._amp_noise = (self._min_val + self._max_val) / 2
+
+        self._func = self.generate_func()
 
     def generate_func(self):
         # TODO: может отдельно создать функцию проверки данных в этом классе
         if not self._type:
             raise ValueError('Не задан тип функции')
-        elif (not self._coord) or (not self._func_val):
+        elif (self._coord is None) or (self._func_val is None):
             raise ValueError('Не заданы координаты или значения экстремумов')
-        elif (not self._degree_smoothness) or (not self._coef_abruptness):
+        elif (self._degree_smoothness is None) or (self._coef_abruptness is None):
             raise ValueError('Не заданы степень гладкости или коэффициенты крутости')
 
         if self._type == 'bf':  # feldbaum_function
@@ -50,7 +48,7 @@ class TestFunction:
             raise ValueError('Неизвестный тип функции')
 
     def get_value(self, x):
-        pass
+        return self._func(x)
 
     def from_json(self, file_name):
         pass
