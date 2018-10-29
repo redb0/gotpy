@@ -22,6 +22,14 @@ class GSAOptions(Options):
         else:
             ValueError('Функции с таким индексом не существует: ' + str(self._g_idx))
 
+    def __repr__(self):
+        # TODO: доделать
+        pass
+
+    def __str__(self):
+        # TODO: доделать
+        pass
+
     @property
     def g0(self):
         return self._g0
@@ -76,7 +84,7 @@ def initialization(n, dim, down, high):
 
 
 def get_eval_func_val(x, tf, kn):
-    f = np.array([tf.get_value(xi) + np.random.uniform(-tf.amp_noise * kn, tf.amp_noise * kn) for xi in x])
+    f = np.array([tf.get_value(xi) + np.random.uniform(-tf.amp * kn, tf.amp * kn) for xi in x])
     return f
 
 

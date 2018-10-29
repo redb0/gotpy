@@ -1,8 +1,21 @@
 import numpy as np
 
 
+_alias_map = {
+    'index': ['idx'],
+    # c=None, f=None, p=None, a=None, down=None, high=None, amp
+    'real_min': ['r_min'],
+    'real_max': ['r_max'],
+    'max_val': ['mv'],
+}
+
+
+# TODO: добавить создание тестовой функции из файла
+# TODO: добавить сохранение тестовой функции в файл
+# TODO: добавить создание случаной тестовой функции
+
 class TestFunction:
-    def __init__(self, idx=0, t='', c=None, f=None, p=None, a=None, down=None, high=None, an=None,
+    def __init__(self, idx=0, t='', c=None, f=None, p=None, a=None, down=None, high=None, amp=None,
                  real_min=None, real_max=None, min_val=None, max_val=None):
         self._idx = idx
         self._dim = len(c[0])
@@ -18,10 +31,10 @@ class TestFunction:
         self._real_max = real_max
         self._min_val = min_val
         self._max_val = max_val
-        if an is not None:
-            self._amp_noise = an
+        if amp is not None:
+            self._amp = amp
         elif (self._min_val is not None) and (self._max_val is not None):
-            self._amp_noise = (self._min_val + self._max_val) / 2
+            self._amp = (self._min_val + self._max_val) / 2
 
         self._func = self.generate_func()
 
@@ -34,16 +47,9 @@ class TestFunction:
         elif (self._degree_smoothness is None) or (self._coef_abruptness is None):
             raise ValueError('Не заданы степень гладкости или коэффициенты крутости')
 
-        if self._type == 'bf':  # feldbaum_function
-            self._func = method_min(self._coef_abruptness, self._coord, self._degree_smoothness, self._func_val)
-        elif self._type == 'hp_abs':  # hyperbolic_potential_abs
-            self._func = hyperbolic_potential_abs(self._coef_abruptness, self._coord,
-                                                  self._degree_smoothness, self._func_val)
-        elif self._type == 'hp_sqr':  # hyperbolic_potential_sqr
-            self._func = hyperbolic_potential_sqr(self._coef_abruptness, self._coord, self._func_val)
-        elif self._type == 'ep':  # exponential_potential
-            self._func = exponential_potential(self._coef_abruptness, self._coord,
-                                               self._degree_smoothness, self._func_val)
+        if self._type in FUNCTIONS.keys():
+            self._func = FUNCTIONS[self._type](a=self._coef_abruptness, c=self._coord,
+                                               p=self._degree_smoothness, b=self._func_val)
         else:
             raise ValueError('Неизвестный тип функции')
 
@@ -54,6 +60,14 @@ class TestFunction:
         pass
 
     def from_dict(self, d):
+        pass
+
+    def __repr__(self):
+        # TODO: доделать
+        pass
+
+    def __str__(self):
+        # TODO: доделать
         pass
 
     @property
@@ -140,12 +154,12 @@ class TestFunction:
         self._high = val
 
     @property
-    def amp_noise(self):
-        return self._amp_noise
+    def amp(self):
+        return self._amp
 
-    @amp_noise.setter
-    def amp_noise(self, val):
-        self._amp_noise = val
+    @amp.setter
+    def amp(self, val):
+        self._amp = val
 
     @property
     def real_min(self):
@@ -180,7 +194,7 @@ class TestFunction:
         self._max_val = val
 
 
-def method_min(a, c, p, b):
+def method_min(a, c, p, b, **kwargs):
     def func(x):
         l = np.zeros((len(b),))
         for i in range(len(b)):
@@ -189,7 +203,7 @@ def method_min(a, c, p, b):
     return func
 
 
-def hyperbolic_potential_abs(a, c, p, b):
+def hyperbolic_potential_abs(a, c, p, b, **kwargs):
     def func(x):
         res = 0
         for i in range(len(b)):
@@ -198,7 +212,7 @@ def hyperbolic_potential_abs(a, c, p, b):
     return func
 
 
-def hyperbolic_potential_sqr(a, c, b):
+def hyperbolic_potential_sqr(a, c, b, **kwargs):
     def func(x):
         res = 0
         for i in range(len(b)):
@@ -207,13 +221,59 @@ def hyperbolic_potential_sqr(a, c, b):
     return func
 
 
-def exponential_potential(a, c, p, b):
+def exponential_potential(a, c, p, b, **kwargs):
     def func(x):
         res = 0
         for i in range(len(b)):
             res += (-b[i]) * np.exp((-a[i]) * np.sum(np.abs(x - c[i]) ** p[i]))
         return res
     return func
+
+
+FUNCTIONS = {
+    'bf': method_min,
+    'hp_abs': hyperbolic_potential_abs,
+    'hp_sqr': hyperbolic_potential_sqr,
+    'ep': exponential_potential
+}
+
+
+def validate_type(t: str) -> bool:
+    if t in FUNCTIONS.keys():
+        return True
+    return False
+
+
+def validate_func_inform(t, a, c, p, b, **kwargs):
+    # kwargs['idx']
+    # kwargs['down']
+    # kwargs['high']
+    # kwargs['amp']
+    # kwargs['real_min']
+    # kwargs['real_max']
+    # kwargs['min_val']
+    # kwargs['max_val']
+    if not isinstance(t, str) or t not in FUNCTIONS.keys():
+        return False
+    dim = len(c[0])
+    n = len(c)
+    if n != len(a) or n != len(p) or n != len(b):
+        return False
+    for i in range(n):
+        if len(c[i]) != dim or len(p[i]) != dim:
+            return False
+    if t in ['hp_abs', 'ep']:
+        pass
+    elif t in ['bf', 'hp_sqr']:
+        for item in a:
+            if len(item) != dim:
+                return False
+
+
+def create_test_func(*args, **kwargs):
+    for arg in args:
+        if isinstance(arg, str) and arg in FUNCTIONS.keys():
+            pass
 
 
 def main():
