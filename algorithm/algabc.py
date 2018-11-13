@@ -69,3 +69,8 @@ class SAC(Algorithm):
     def __init__(self, **kwargs):
         super().__init__(class_name='SAC', **kwargs)
         # self._class_name = 'SAC'
+
+
+class ASA(Algorithm):
+    def __init__(self, **kwargs):
+        super().__init__(class_name='ASA', **kwargs)
