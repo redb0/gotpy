@@ -5,8 +5,9 @@ from algorithm.algabc import GSA, Options
 from problem.testfunc import TestFunction
 
 
+# TODO: добавить воздможность выбора метода останова (по умолчанию - итерации) среднеквадратичное откл от лучшей точки
 class GSAOptions(Options):
-    def __init__(self, n, ni, ig, g0, alpha, gamma, ep=True, rn=2, rp=1, kn=0):
+    def __init__(self, n, ni, ig, g0, alpha, gamma, ep=True, rn=2, rp=1, kn=0, delta=pow(10, -4)):
         super().__init__(n, ni, kn)
         self._g_idx = ig
         self._g0 = g0
@@ -15,6 +16,8 @@ class GSAOptions(Options):
         self._rn = rn
         self._rp = rp
         self._gamma = gamma  # FIXME: зачем?
+
+        self._delta = delta  # останов
 
     def get_g_value(self, i, max_iter):
         if self._g_idx == 1:
@@ -57,6 +60,10 @@ class GSAOptions(Options):
     @property
     def gamma(self):
         return self._gamma
+
+    @property
+    def delta(self):
+        return self._delta
 
 
 class StandardGSA(GSA):
@@ -159,7 +166,7 @@ def gsa(op, tf, min_flag):
     mean_chart = []
     func_best = None
     agent_best = None
-
+    iteration = 0
     for i in range(op.ni):
         iteration = i + 1
         x = space_bound(x, tf.down, tf.high)
@@ -188,11 +195,17 @@ def gsa(op, tf, min_flag):
         best_chart.append(func_best)
         mean_chart.append(np.mean(fit))
 
+        if op.delta is not None:
+            ar_std = np.std(x, axis=0, ddof=1)
+            _std = np.power(np.sum(np.power(ar_std, 2)), 0.5)
+            if _std <= op.delta:
+                return agent_best, func_best, iteration, best_chart, mean_chart
+
         mass = find_mass(fit, min_flag)
         g = op.get_g_value(iteration, op.ni)
         a = find_acceleration(x, mass, g, op.rn, op.rp, op.elite_probe, i, op.ni)
         x, velocity = move(x, a, velocity)
-    return func_best, agent_best, best_chart, mean_chart
+    return agent_best, func_best, iteration, best_chart, mean_chart
 
 
 def main():
@@ -202,31 +215,7 @@ def main():
     g0 = 100
     alpha = 20
     gamma = None  # ???
-    op = GSAOptions(n, max_iter, idx_g, g0, alpha, gamma, ep=True, rn=2, rp=1, kn=0)
 
-    a = np.array([
-        [7, 7], [4, 5], [6, 6], [5, 7], [3.5, 5],
-        [7, 3], [6, 5], [3, 6.3], [4.5, 5], [2, 3]
-    ])
-    b = np.array([0, 5, 6, 6.5, 7, 8, 8.5, 9, 10, 11])
-    c = np.array([
-        [2, -3], [-4, 3], [4, 5], [-2, 1], [-3, -4],
-        [-5, -3], [4, -2], [2, 2], [3, 5], [-1, -1]
-    ])
-    p = np.array([
-        [0.7, 0.9], [0.9, 0.6], [1.2, 0.3], [0.6, 1.3], [1.5, 2],
-        [0.5, 0.9], [2, 0.6], [1.7, 1.1], [1.1, 0.8], [0.6, 1.1]
-    ])
-    down = [-6, -6]
-    high = [6, 6]
-
-    tf = TestFunction(0, t='bf', c=c, f=b, p=p, a=a, down=down, high=high,
-                      real_min=np.array([2, -3]), real_max=np.array([6, -6]), min_val=0, max_val=32.1)
-    tf.generate_func()
-    alg = StandardGSA(op)
-    func_best, agent_best, best_chart, mean_chart = alg.gsa(tf, min_flag=1)
-    print(func_best)
-    print(agent_best)
 
 if __name__ == '__main__':
     main()
