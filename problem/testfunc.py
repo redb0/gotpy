@@ -1,13 +1,24 @@
 import numpy as np
 
+from support import normalize_kwargs
 
 _alias_map = {
     'index': ['idx'],
-    # c=None, f=None, p=None, a=None, down=None, high=None, amp
-    'real_min': ['r_min'],
-    'real_max': ['r_max'],
-    'max_val': ['mv'],
+    'f_type': ['type', 'ft'],
+    'coord': ['coordinates', 'c'],
+    'func_val': ['func_values', 'fv'],
+    'ds': ['degree_smoothness'],
+    'sc': ['slope_coefficients', 'coefficients_abruptness'],
+    'down': ['constraints_down', 'cd'],
+    'high': ['constraints_high', 'ch'],
+    'global_min': ['g_min'],
+    'global_max': ['g_max'],
+    'max_val': ['max_value'],
+    'min_val': ['min_value'],
 }
+
+_required_keys = ('f_type', 'coord', 'func_val', 'ds', 'sc', 'down',
+                  'high', 'global_min', 'global_max', 'min_val', 'max_val',)
 
 
 # TODO: добавить создание тестовой функции из файла
@@ -15,28 +26,33 @@ _alias_map = {
 # TODO: добавить создание случаной тестовой функции
 
 class TestFunction:
-    def __init__(self, idx=0, t='', c=None, f=None, p=None, a=None, down=None, high=None, amp=None,
-                 real_min=None, real_max=None, min_val=None, max_val=None):
-        self._idx = idx
-        self._dim = len(c[0])
-        self._num_extrema = len(c)
-        self._type = t
-        self._coord = c
-        self._func_val = f
-        self._degree_smoothness = p
-        self._coef_abruptness = a
-        self._down = down
-        self._high = high
-        self._real_min = real_min
-        self._real_max = real_max
-        self._min_val = min_val
-        self._max_val = max_val
-        if amp is not None:
-            self._amp = amp
+    def __init__(self, **kwargs):
+        kw = normalize_kwargs(kwargs, alias_map=_alias_map, required=_required_keys)
+        if 'index' in kw:
+            self._idx = kw['index']
+
+        self._type = kw['f_type']
+        self._coord = kw['coord']
+        self._func_val = kw['func_val']
+        self._ds = kw['ds']
+        self._sc = kw['sc']
+        self._down = kw['down']
+        self._high = kw['high']
+        self._global_min = kw['global_min']
+        self._global_max = kw['global_max']
+        self._min_val = kw['min_val']
+        self._max_val = kw['max_val']
+
+        self._dim = len(self._coord[0])
+        self._num_extrema = len(self._coord)
+
+        if 'amp' in kw:
+            self._amp = kw['amp']
         elif (self._min_val is not None) and (self._max_val is not None):
             self._amp = (self._min_val + self._max_val) / 2
 
-        self._func = self.generate_func()
+        self._func = None
+        self.generate_func()
 
     def generate_func(self):
         # TODO: может отдельно создать функцию проверки данных в этом классе
@@ -44,23 +60,32 @@ class TestFunction:
             raise ValueError('Не задан тип функции')
         elif (self._coord is None) or (self._func_val is None):
             raise ValueError('Не заданы координаты или значения экстремумов')
-        elif (self._degree_smoothness is None) or (self._coef_abruptness is None):
+        elif (self._ds is None) or (self._sc is None):
             raise ValueError('Не заданы степень гладкости или коэффициенты крутости')
 
         if self._type in FUNCTIONS.keys():
-            self._func = FUNCTIONS[self._type](a=self._coef_abruptness, c=self._coord,
-                                               p=self._degree_smoothness, b=self._func_val)
+            self._func = FUNCTIONS[self._type](a=self._sc, c=self._coord,
+                                               p=self._ds, b=self._func_val)
         else:
             raise ValueError('Неизвестный тип функции')
 
     def get_value(self, x):
         return self._func(x)
 
-    def from_json(self, file_name):
-        pass
+    # @classmethod
+    # def from_json(cls, file_name):
+    #     with open(file_name) as f:
+    #         data = json.load(f)
+    #     return cls.from_dict(data)
 
-    def from_dict(self, d):
-        pass
+    # @classmethod
+    # def from_dict(cls, d):
+    #     for k, v in _field_names.items():
+    #         if v not in d:
+    #             raise KeyError(f'Нет обязательного поля: {v}')
+    #     if not validate_type(d[_field_names['f_type']]):
+    #         raise ValueError(f"Некорректное значение типа: {d['f_type']}. Доступные типы: {list(FUNCTIONS.keys())}")
+    #     return cls(**d)
 
     def __repr__(self):
         # TODO: доделать
@@ -123,19 +148,19 @@ class TestFunction:
 
     @property
     def degree_smoothness(self):
-        return self._degree_smoothness
+        return self._ds
 
     @degree_smoothness.setter
     def degree_smoothness(self, val):
-        self._degree_smoothness = val
+        self._ds = val
 
     @property
-    def coef_abruptness(self):
-        return self._coef_abruptness
+    def slope_coefficients(self):
+        return self._sc
 
-    @coef_abruptness.setter
-    def coef_abruptness(self, val):
-        self._coef_abruptness = val
+    @slope_coefficients.setter
+    def slope_coefficients(self, val):
+        self._sc = val
 
     @property
     def down(self):
@@ -163,19 +188,19 @@ class TestFunction:
 
     @property
     def real_min(self):
-        return self._real_min
+        return self._global_min
 
     @real_min.setter
     def real_min(self, val):
-        self._real_min = val
+        self._global_min = val
 
     @property
     def real_max(self):
-        return self._real_max
+        return self._global_max
 
     @real_max.setter
     def real_max(self, val):
-        self._real_max = val
+        self._global_max = val
 
     @property
     def min_val(self):
@@ -294,10 +319,41 @@ def main():
     f1 = hyperbolic_potential_abs(a1, c1, p1, b1)
     f2 = hyperbolic_potential_sqr(a, c, b2)
     f3 = exponential_potential(a1, c1, p1, b1)
-    print(f(x))
-    print(f1(x))
-    print(f2(x))
-    print(f3(x))
+    # print(f(x))
+    # print(f1(x))
+    # print(f2(x))
+    # print(f3(x))
+
+    TEST_FUNC_2 = {
+        "dimension": 2,
+        "type": 'bf',
+        "number_extrema": 10,
+        "coordinates": [
+            [4, 2], [-3, -2], [-5, 3], [3, -3], [3, 5],
+            [-2, 4], [0, -4], [5, -5], [-4, -4], [1, -1]
+        ],
+        "func_values": [0, 3, 5, 6, 7, 8, 9, 10, 11, 12],
+        "degree_smoothness": [
+            [0.7, 0.9], [0.9, 0.6], [1.2, 0.3], [0.6, 1.3], [1.5, 2],
+            [0.5, 0.9], [2, 0.6], [1.7, 1.1], [1.1, 0.8], [0.6, 1.1]
+        ],
+        "coefficients_abruptness": [
+            [7, 7], [4, 5], [6, 6], [5, 7], [3.5, 5],
+            [7, 3], [6, 5], [3, 6.3], [4.5, 5], [2, 3]
+        ],
+        "constraints_high": [6, 6],
+        "constraints_down": [-6, -6],
+        "global_min": [4, 2],
+        "global_max": [2, -6],
+        "amp_noise": 15.755,
+        "min_value": 0.0,
+        "max_value": 31.51
+    }
+
+    tf = TestFunction(**TEST_FUNC_2)
+    print(tf.get_value(np.array([4, 2])))
+    print(tf.get_value(np.array([2, -6])))
+
 
 if __name__ == '__main__':
     main()
