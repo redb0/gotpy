@@ -72,6 +72,18 @@ class TestFunction:
     def get_value(self, x):
         return self._func(x)
 
+    def in_vicinity(self, x, epsilon, flag='min', strict_inequality=False):
+        if flag == 'max':
+            g_extrema = self._global_max
+        else:
+            g_extrema = self._global_min
+
+        if strict_inequality:
+            res = (np.abs(g_extrema - x) < epsilon).all()
+        else:
+            res = (np.abs(g_extrema - x) <= epsilon).all()
+        return res
+
     # @classmethod
     # def from_json(cls, file_name):
     #     with open(file_name) as f:
@@ -187,19 +199,19 @@ class TestFunction:
         self._amp = val
 
     @property
-    def real_min(self):
+    def global_min(self):
         return self._global_min
 
-    @real_min.setter
-    def real_min(self, val):
+    @global_min.setter
+    def global_min(self, val):
         self._global_min = val
 
     @property
-    def real_max(self):
+    def global_max(self):
         return self._global_max
 
-    @real_max.setter
-    def real_max(self, val):
+    @global_max.setter
+    def global_max(self, val):
         self._global_max = val
 
     @property
@@ -353,6 +365,8 @@ def main():
     tf = TestFunction(**TEST_FUNC_2)
     print(tf.get_value(np.array([4, 2])))
     print(tf.get_value(np.array([2, -6])))
+    print(tf.in_vicinity(np.array([4, 2.1]), epsilon=0.2))
+    print(tf.in_vicinity(np.array([3.79, 2.1]), epsilon=0.2))
 
 
 if __name__ == '__main__':
