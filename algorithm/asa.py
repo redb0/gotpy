@@ -152,8 +152,8 @@ def main():
     p = np.array([[0.7, 0.9], [0.9, 0.6], [1.2, 0.3], [0.6, 1.3], [1.5, 2],
                   [0.5, 0.9], [2, 0.6], [1.7, 1.1], [1.1, 0.8], [0.6, 1.1]])
     g_min = np.array([4, 2])
-    tf = TestFunction(0, t='bf', c=c, f=b, p=p, a=a, down=[-6, -6], high=[6, 6],
-                      real_min=g_min, real_max=np.array([2, -6]), min_val=0, max_val=31.51)
+    tf = TestFunction(0, f_type='bf', coord=c, func_val=b, ds=p, sc=a, down=[-6, -6], high=[6, 6],
+                      global_min=g_min, global_max=np.array([2, -6]), min_val=0, max_val=31.51)
     tf.generate_func()
 
     ep = 0.2

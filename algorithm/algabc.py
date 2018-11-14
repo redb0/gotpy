@@ -38,6 +38,9 @@ class Algorithm:
 
         self._options = op
 
+    def probability_estimate(self, *args, **kwargs):
+        pass
+
     @property
     def class_name(self):
         return self._class_name
