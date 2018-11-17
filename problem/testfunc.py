@@ -18,7 +18,7 @@ _alias_map = {
 }
 
 _required_keys = ('f_type', 'coord', 'func_val', 'ds', 'sc', 'down',
-                  'high', 'global_min', 'global_max', 'min_val', 'max_val',)
+                  'high',)  # 'global_min', 'global_max', 'min_val', 'max_val'
 
 
 # TODO: добавить создание тестовой функции из файла
@@ -27,32 +27,38 @@ _required_keys = ('f_type', 'coord', 'func_val', 'ds', 'sc', 'down',
 
 class TestFunction:
     def __init__(self, **kwargs):
-        kw = normalize_kwargs(kwargs, alias_map=_alias_map, required=_required_keys)
+        kw = normalize_kwargs(kwargs, alias_map=_alias_map, required=('f_type', ))
+        self._type = kw['f_type']
         if 'index' in kw:
             self._idx = kw['index']
-
-        self._type = kw['f_type']
-        self._coord = kw['coord']
-        self._func_val = kw['func_val']
-        self._ds = kw['ds']
-        self._sc = kw['sc']
-        self._down = kw['down']
-        self._high = kw['high']
-        self._global_min = kw['global_min']
-        self._global_max = kw['global_max']
-        self._min_val = kw['min_val']
-        self._max_val = kw['max_val']
-
-        self._dim = len(self._coord[0])
-        self._num_extrema = len(self._coord)
-
-        if 'amp' in kw:
-            self._amp = kw['amp']
-        elif (self._min_val is not None) and (self._max_val is not None):
-            self._amp = (self._min_val + self._max_val) / 2
-
+        self._amp = None
         self._func = None
-        self.generate_func()
+
+        if self._type in FUNCTIONS.keys():
+            kw = normalize_kwargs(kw, alias_map=_alias_map, required=_required_keys)
+
+            self._coord = kw['coord']
+            self._func_val = kw['func_val']
+            self._ds = kw['ds']
+            self._sc = kw['sc']
+            self._down = kw['down']
+            self._high = kw['high']
+            self._global_min = None if 'global_min' not in kw else kw['global_min']
+            self._global_max = None if 'global_max' not in kw else kw['global_max']
+            self._min_val = None if 'min_val' not in kw else kw['min_val']
+            self._max_val = None if 'max_val' not in kw else kw['max_val']
+
+            self._dim = len(self._coord[0])
+            self._num_extrema = len(self._coord)
+
+            if 'amp' in kw:
+                self._amp = kw['amp']
+            elif (self._min_val is not None) and (self._max_val is not None):
+                self._amp = (self._min_val + self._max_val) / 2
+
+            self.generate_func()
+        elif self._type in ('arb', 'arbitrary'):
+            pass
 
     def generate_func(self):
         # TODO: может отдельно создать функцию проверки данных в этом классе
@@ -230,8 +236,92 @@ class TestFunction:
     def max_val(self, val):
         self._max_val = val
 
+    @property
+    def func(self):
+        return self._func
+
+    @func.setter
+    def func(self, f):
+        self._func = f
+
+
+def create_arbitrary_tf():
+    # создание произвольной функции
+    pass
+
+
+# down, high - границы области (генерация координат)
+# dim - размерность задачи,
+# number_extrema - количество экстремумов,
+# min_flag - минимумы или максимумы
+# f_type - тип функции,
+# ds_range - диапазон степеней гладкости,
+# sc_range - диапазон коэффициентов крутости
+# fv_range - диапазон значений функции в т экстремумах,
+# global_extrema - (min, rand) - флаг
+# ge_distance - различие глобального экст от остальных
+def create_random_tf(ds_range, sc_range, fv_range, down, high, f_type='bf', dim=2, numb_ex=10, min_dist=0.5, ge_dist=3):
+    if f_type not in FUNCTIONS.keys():
+        raise ValueError(f'Некорректный тип функции {f_type}. Возможные типы: {list(FUNCTIONS.keys())}')
+
+    # генерация координат
+    if isinstance(down, (int, float)):
+        down = np.array([down for _ in range(dim)])
+    if isinstance(high, (int, float)):
+        high = np.array([high for _ in range(dim)])
+    c = np.array([np.array([np.random.randint(down[i], high[i]) for i in range(dim)]) for _ in range(numb_ex)])
+    # генерация значений функции
+    fv_range = np.float64(fv_range)
+    f = np.around(sequence(fv_range, numb_ex, ge_d=ge_dist, distance=min_dist, ge_val='min'), decimals=2)  # для 'ep' fv_range = [15, 0]
+    if f_type != 'ep':
+        f = np.around(sequence(fv_range, numb_ex, ge_d=ge_dist, distance=min_dist, ge_val='min'), decimals=2)
+    else:
+        f = np.around(sequence(fv_range, numb_ex, ge_d=ge_dist, distance=min_dist, ge_val='min'), decimals=2)
+    # генерация степеней гладкости
+    p = np.around(np.random.uniform(ds_range[0], ds_range[1], (numb_ex, dim)), decimals=2)
+    # генерация коэффициентов крутости
+    a = np.around(np.random.uniform(sc_range[0], sc_range[1], (numb_ex, dim)), decimals=2)
+
+    return TestFunction(f_type=f_type, coord=c, func_val=f, ds=p, sc=a, down=down, high=high, global_min=c[0], min_val=f[0])
+
+
+def sequence(s_range, n, ge_d=1, distance=0.5, ge_val='min'):
+    ge_possible_values = ('min', 'rand')
+    if ge_val not in ge_possible_values:
+        raise ValueError(f'Некорректное значение аргумента g_extrema. '
+                         f'Возможные значения: {ge_possible_values}')
+
+    f = np.zeros(n)
+    cut_len = abs(s_range[1] - s_range[0])
+    min_distance = ge_d + (n - 1) * distance
+    if not (cut_len > min_distance):
+        raise ValueError(f'Диапазон варьирования слишком мал. '
+                         f'Его длина должна быть > {min_distance}')
+    reverse = True if s_range[0] > s_range[1] else False
+
+    if ge_val in ge_possible_values[0]:
+        f[0] = s_range[0]
+    else:
+        q = (cut_len - ge_d - (n - 1) * distance) / n
+        high = s_range[0] - q if reverse else s_range[0] + q
+        f[0] = np.random.uniform(s_range[0], high)
+
+    for i in range(1, n):
+        if i == 1:
+            low = f[i - 1] - ge_d if reverse else f[i - 1] + ge_d
+        else:
+            low = f[i - 1] - distance if reverse else f[i - 1] + distance
+        q = (cut_len - low - (n - i) * distance) / n
+        high = low - q if reverse else low + q
+        f[i] = np.random.uniform(low, high)
+    return f
+
 
 def method_min(a, c, p, b, **kwargs):
+    # a - коэффициенты крутости
+    # c - кординаты
+    # p - степени гладкости
+    # b - значения функции
     def func(x):
         l = np.zeros((len(b),))
         for i in range(len(b)):
@@ -362,11 +452,16 @@ def main():
         "max_value": 31.51
     }
 
-    tf = TestFunction(**TEST_FUNC_2)
-    print(tf.get_value(np.array([4, 2])))
-    print(tf.get_value(np.array([2, -6])))
-    print(tf.in_vicinity(np.array([4, 2.1]), epsilon=0.2))
-    print(tf.in_vicinity(np.array([3.79, 2.1]), epsilon=0.2))
+    # tf = TestFunction(**TEST_FUNC_2)
+    # print(tf.get_value(np.array([4, 2])))
+    # print(tf.get_value(np.array([2, -6])))
+    # print(tf.in_vicinity(np.array([4, 2.1]), epsilon=0.2))
+    # print(tf.in_vicinity(np.array([3.79, 2.1]), epsilon=0.2))
+
+    tf = create_random_tf([0.5, 2.2], [2.0, 8.0], [0, 15], -6, 6,
+                          f_type='bf', dim=2, numb_ex=10, min_dist=0.5, ge_dist=3)
+    print(tf.coord)
+    print(tf.get_value(tf.coord[0]))
 
 
 if __name__ == '__main__':

@@ -24,5 +24,5 @@ def normalize_kwargs(kw, alias_map=None, required=()):
     res.update(kw)
     fail_keys = [k for k in required if k not in res]
     if fail_keys:
-        raise TypeError(f"Требуются ключи {keys!r} в kwargs")
+        raise TypeError(f"Требуются ключи {fail_keys} в kwargs")
     return res
