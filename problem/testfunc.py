@@ -21,8 +21,6 @@ _required_keys = ('f_type', 'coord', 'func_val', 'ds', 'sc', 'down',
                   'high',)  # 'global_min', 'global_max', 'min_val', 'max_val'
 
 
-# TODO: добавить создание тестовой функции из файла
-# TODO: добавить сохранение тестовой функции в файл
 # TODO: добавить создание случаной тестовой функции
 
 class TestFunction:
@@ -269,20 +267,23 @@ def create_random_tf(ds_range, sc_range, fv_range, down, high, f_type='bf', dim=
         down = np.array([down for _ in range(dim)])
     if isinstance(high, (int, float)):
         high = np.array([high for _ in range(dim)])
+    c = np.zeros((numb_ex, dim))
+    for i in range(numb_ex):
+        is_duplicate = True
+        while is_duplicate:
+            c[i] = np.array([np.random.randint(down[j], high[j]) for j in range(dim)])
+            is_duplicate = (c[i] == c[:i]).all(axis=1).any()
     c = np.array([np.array([np.random.randint(down[i], high[i]) for i in range(dim)]) for _ in range(numb_ex)])
     # генерация значений функции
     fv_range = np.float64(fv_range)
     f = np.around(sequence(fv_range, numb_ex, ge_d=ge_dist, distance=min_dist, ge_val='min'), decimals=2)  # для 'ep' fv_range = [15, 0]
-    if f_type != 'ep':
-        f = np.around(sequence(fv_range, numb_ex, ge_d=ge_dist, distance=min_dist, ge_val='min'), decimals=2)
-    else:
-        f = np.around(sequence(fv_range, numb_ex, ge_d=ge_dist, distance=min_dist, ge_val='min'), decimals=2)
     # генерация степеней гладкости
     p = np.around(np.random.uniform(ds_range[0], ds_range[1], (numb_ex, dim)), decimals=2)
     # генерация коэффициентов крутости
     a = np.around(np.random.uniform(sc_range[0], sc_range[1], (numb_ex, dim)), decimals=2)
 
-    return TestFunction(f_type=f_type, coord=c, func_val=f, ds=p, sc=a, down=down, high=high, global_min=c[0], min_val=f[0])
+    return TestFunction(f_type=f_type, coord=c, func_val=f, ds=p, sc=a,
+                        down=down, high=high, global_min=c[0], min_val=f[0])
 
 
 def sequence(s_range, n, ge_d=1, distance=0.5, ge_val='min'):
