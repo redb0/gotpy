@@ -273,7 +273,6 @@ def create_random_tf(ds_range, sc_range, fv_range, down, high, f_type='bf', dim=
         while is_duplicate:
             c[i] = np.array([np.random.randint(down[j], high[j]) for j in range(dim)])
             is_duplicate = (c[i] == c[:i]).all(axis=1).any()
-    c = np.array([np.array([np.random.randint(down[i], high[i]) for i in range(dim)]) for _ in range(numb_ex)])
     # генерация значений функции
     fv_range = np.float64(fv_range)
     f = np.around(sequence(fv_range, numb_ex, ge_d=ge_dist, distance=min_dist, ge_val='min'), decimals=2)  # для 'ep' fv_range = [15, 0]
