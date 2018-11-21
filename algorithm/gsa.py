@@ -27,7 +27,7 @@ class GSAOptions(Options):
     def __init__(self, **kwargs):  # n, ni, ig, g0, alpha, gamma, ep=True, rn=2, rp=1, kn=0, delta=pow(10, -4)
         kw = support.normalize_kwargs(kwargs, alias_map=_alias_map, required=_required_keys)
         kn = 0 if 'k_noise' not in kw else kw['k_noise']
-        super().__init__(kw['number_points'], kw['number_iter'], kn)
+        super().__init__(**kw)
         self._g_idx = 1 if 'g_idx' not in kw else kw['g_idx']
         self._g0 = kw['g_zero']
         self._alpha = kw['alpha']
@@ -40,6 +40,11 @@ class GSAOptions(Options):
     def get_g_value(self, i, max_iter):
         if self._g_idx == 1:
             return self._g0 * np.exp(-self._alpha * i / max_iter)
+        elif self._g_idx == 2:
+            if self._gamma is not None:
+                return self._g0 / (self._alpha + i**self._gamma)
+            else:
+                ValueError('Атрибут _gamma не установлен.')
         else:
             ValueError('Функции с таким индексом не существует: ' + str(self._g_idx))
 
@@ -188,10 +193,10 @@ def gsa(op, tf, min_flag):
     func_best = None
     agent_best = None
     iteration = 0
-    for i in range(op.ni):
+    for i in range(op.number_iter):
         iteration = i + 1
         x = space_bound(x, tf.down, tf.high)
-        fit = get_eval_func_val(x, tf, op.kn)
+        fit = get_eval_func_val(x, tf, op.k_noise)
 
         if min_flag == 1:
             best = np.min(fit)
@@ -223,8 +228,8 @@ def gsa(op, tf, min_flag):
                 return agent_best, func_best, iteration, best_chart, mean_chart
 
         mass = find_mass(fit, min_flag)
-        g = op.get_g_value(iteration, op.ni)
-        a = find_acceleration(x, mass, g, op.rn, op.rp, op.elite_probe, i, op.ni)
+        g = op.get_g_value(iteration, op.number_iter)
+        a = find_acceleration(x, mass, g, op.rn, op.rp, op.elite_probe, i, op.number_iter)
         x, velocity = move(x, a, velocity)
     return agent_best, func_best, iteration, best_chart, mean_chart
 
@@ -262,7 +267,7 @@ def main():
     n = [50]
     for j in range(len(n)):
         p = 0
-        op = GSAOptions(np=n[j], ni=50, g_idx=1, g_zero=100, alpha=20)
+        op = GSAOptions(np=n[j], ni=50, g_idx=2, g_zero=100, alpha=20, gamma=2)
         # op = GSAOptions(np=n[j], ni=20, g_idx=1, g_zero=100, alpha=20)
         alg = StandardGSA(op)
         for i in range(100):

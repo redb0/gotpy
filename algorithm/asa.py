@@ -1,22 +1,34 @@
 import numpy as np
 
+import support
 from algorithm.algabc import Options, ASA
 from problem.testfunc import TestFunction
 
 
 class ASAOptions(Options):
-    def __init__(self, n, ni, max_temp, min_temp, temp_func_idx, init_mode='rand', kn=0):
-        super().__init__(n, ni, kn)
-        self._max_temp = max_temp
-        self._min_temp = min_temp
-        self._temp_func_idx = temp_func_idx
-        self._init_mode = init_mode
+    _alias_map = {
+        'max_temp': ['max_t'],
+        'min_temp': ['min_t'],
+        'init_mode': ['im'],
+        'idx_temp_func': ['itf'],
+    }
+    _required_keys = ('max_temp', 'min_temp')
+
+    def __init__(self, **kwargs):
+        kw = support.normalize_kwargs(kwargs,
+                                      alias_map=self.__class__._alias_map,
+                                      required=self.__class__._required_keys)
+        super().__init__(**kw)
+        self._max_temp = kw['max_temp']
+        self._min_temp = kw['min_temp']
+        self._idx_temp_func = 1 if 'idx_temp_func' not in kw else kw['idx_temp_func']
+        self._init_mode = 'rand' if 'init_mode' not in kw else kw['init_mode']
 
     def get_temperature(self, i):
         t = None
-        if self._temp_func_idx == 1:
+        if self._idx_temp_func == 1:
             t = boltzmann_annealing(i, self._max_temp)
-        elif self._temp_func_idx == 2:
+        elif self._idx_temp_func == 2:
             t = linear_temp(i, self._max_temp)
         return t
 
@@ -56,7 +68,7 @@ class StandardASA(ASA):
 def asa(op, tf, min_flag):
     t = op.max_temp
     x = init_start_point(tf, op.init_mode)
-    energy = get_eval_func_val(x, tf, op.kn)
+    energy = get_eval_func_val(x, tf, op.k_noise)
 
     charts = []
     f = []
@@ -64,7 +76,7 @@ def asa(op, tf, min_flag):
     i = 1
     while t > op.min_temp:
         test_x = init_test_point(x, t, tf)
-        new_energy = get_eval_func_val(test_x, tf, op.kn)
+        new_energy = get_eval_func_val(test_x, tf, op.k_noise)
         x, energy = transition(x, test_x, t, energy, new_energy)
         charts.append(x)
         f.append(energy)
@@ -152,7 +164,7 @@ def main():
     p = np.array([[0.7, 0.9], [0.9, 0.6], [1.2, 0.3], [0.6, 1.3], [1.5, 2],
                   [0.5, 0.9], [2, 0.6], [1.7, 1.1], [1.1, 0.8], [0.6, 1.1]])
     g_min = np.array([4, 2])
-    tf = TestFunction(0, f_type='bf', coord=c, func_val=b, ds=p, sc=a, down=[-6, -6], high=[6, 6],
+    tf = TestFunction(f_type='bf', coord=c, func_val=b, ds=p, sc=a, down=[-6, -6], high=[6, 6],
                       global_min=g_min, global_max=np.array([2, -6]), min_val=0, max_val=31.51)
     tf.generate_func()
 
@@ -161,7 +173,7 @@ def main():
     temp = (350, 400, 450,  500, 550, 600)
     for j in range(len(temp)):
         p = 0
-        op = ASAOptions(0, 100, temp[j], 0.1, 2, init_mode='rand', kn=1)
+        op = ASAOptions(n=0, number_iter=100, max_temp=temp[j], min_temp=0.1, idx_temp_func=2, init_mode='rand', kn=1)
         alg = StandardASA(op)
         it = 0
         for i in range(100):
