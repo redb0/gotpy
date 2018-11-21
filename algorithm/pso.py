@@ -1,4 +1,5 @@
 import operator
+import itertools
 import numpy as np
 
 import support
@@ -10,19 +11,25 @@ class PSAOptions(Options):
         'omega': ['o'],
         'fi_p': ['fp'],
         'fi_g': ['fg'],
-        'number_points': ['n', 'np'],
-        'number_iter': ['ni', 'iter'],
-        'k_noise': ['kn']
+        # 'number_points': ['n', 'np'],
+        # 'number_iter': ['ni', 'iter'],
+        # 'k_noise': ['kn']
     }
-    _required_keys = ('number_points', 'number_iter', 'omega', 'fi_p', 'fi_g')
+    _required_keys = ('omega', 'fi_p', 'fi_g')
 
     def __init__(self, **kwargs):
         kw = support.normalize_kwargs(kwargs, alias_map=PSAOptions._alias_map, required=PSAOptions._required_keys)
-        kn = 0 if 'k_noise' not in kw else kw['k_noise']
-        super().__init__(kw['number_points'], kw['number_iter'], kn)
+        super().__init__(**kw)
         self._omega = kw['omega']
         self._fi_p = kw['fi_p']
         self._fi_g = kw['fi_g']
+
+    # def update_op(self, **kwargs):
+    #     kw = support.normalize_kwargs(kwargs, alias_map=PSAOptions._alias_map)
+    #     for k, v in kw.items():
+    #         print(k, v)
+    #         if k in PSAOptions._alias_map:
+    #             self.__setattr__(k, v)
 
     def __repr__(self):
         return (f'PSAOptions(number_points={self._number_points}, number_iter={self._number_iter}, '
@@ -32,13 +39,25 @@ class PSAOptions(Options):
     def omega(self):
         return self._omega
 
+    @omega.setter
+    def omega(self, v):
+        self._omega = v
+
     @property
     def fi_p(self):
         return self._fi_p
 
+    @fi_p.setter
+    def fi_p(self, v):
+        self._fi_p = v
+
     @property
     def fi_g(self):
         return self._fi_g
+
+    @fi_g.setter
+    def fi_g(self, v):
+        self._fi_g = v
 
 
 class Point:
@@ -111,8 +130,25 @@ class StandardPSA(PSO):
             return psa(self._options, tf, min_flag)
         raise ValueError('Не установлены параметры алгоритма')
 
-    def probability_estimate(self, tf, op, iteration: dict):
-        pass
+    def probability_estimate(self, tf, op, iteration: dict, ep: float=0.2, number_runs: int=100, min_flag: int=1):
+        ar = list(iteration.values())
+        size = tuple(len(i) for i in ar)
+        idxs = list(itertools.product(*(list(range(len(i))) for i in ar)))
+        items = list((dict(zip(iteration.keys(), values)) for values in itertools.product(*iteration.values())))
+        res = np.zeros(size)
+        for i in range(len(idxs)):
+            print('index:', idxs[i])
+            print('item:', items[i])
+            op.update_op(**items[i])
+            p = 0
+            for j in range(number_runs):
+                x_bests, *_ = self.pso(tf, min_flag=min_flag)
+                if tf.in_vicinity(x_bests, epsilon=ep):
+                    p += 1
+            res[idxs[i]] = p / number_runs
+            print('Оценка вероятности', res[idxs[i]])
+            print('-' * 20)
+        return res
 
 
 def psa(op, tf, min_flag):
@@ -120,9 +156,9 @@ def psa(op, tf, min_flag):
     best_point = get_best_point(points, min_flag)
     best_x, func_best = best_point.coordinates, best_point.value
     iteration = 0
-    best_chart = np.zeros((op.ni,))
-    mean_chart = np.zeros((op.ni,))
-    for i in range(op.ni):
+    best_chart = np.zeros((op.number_iter,))
+    mean_chart = np.zeros((op.number_iter,))
+    for i in range(op.number_iter):
         iteration = i + 1
         best_chart[i] = func_best
         mean_chart[i] = np.mean([p.value for p in points])
@@ -131,7 +167,7 @@ def psa(op, tf, min_flag):
             r_g = np.random.uniform(0, 1, (tf.dim,))
             p.velocity = op.omega * p.velocity + op.fi_p * r_p * (p.best_coord - p.coordinates) + op.fi_g * r_g * (best_x - p.coordinates)
             p.coordinates = p.coordinates + p.velocity
-            p.value = tf.get_value(p.coordinates) + np.random.uniform(-tf.amp * op.kn, tf.amp * op.kn)
+            p.value = tf.get_value(p.coordinates) + np.random.uniform(-tf.amp * op.k_noise, tf.amp * op.k_noise)
             if min_flag == 1:
                 if p.value < p.best_value:
                     p.best_value = p.value
@@ -160,7 +196,7 @@ def initialization(op, tf):
     x = np.zeros((op.number_points,), dtype=object)
     for i in range(op.number_points):
         c = np.array([np.random.uniform(down[j], high[j]) for j in range(tf.dim)])
-        val = tf.get_value(c) + np.random.uniform(-tf.amp * op.kn, tf.amp * op.kn)
+        val = tf.get_value(c) + np.random.uniform(-tf.amp * op.k_noise, tf.amp * op.k_noise)
         vel = np.array([np.random.uniform(down[j], high[j]) for j in range(tf.dim)])
         x[i] = Point(c=c, val=val, vel=vel, bv=val)
     return x
@@ -210,22 +246,11 @@ def main():
     from problem.testfunc import TestFunction
     tf = TestFunction(**TEST_FUNC_2)
 
-    ep = 0.2
-    p_list = []
-    n = [20, 30, 40, 50, 60, 70]
-    for j in range(len(n)):
-        p = 0
-        op = PSAOptions(np=n[j], ni=100, kn=0, omega=1, fi_p=0.5, fi_g=1)
-        alg = StandardPSA(op)
-        for i in range(100):
-            x_bests, func_best, iteration, _, _ = alg.pso(tf, min_flag=1)
-            print(x_bests, func_best, iteration)
-            if tf.in_vicinity(x_bests, epsilon=ep):
-                p += 1
-        p_list.append(p / 100.0)
-        print('Оценка вероятности', p / 100.0)
-        print('-'*20)
-    print(p_list)
+    d = {'number_points': [20, 30, 40], 'omega': [0.2, 0.4, 0.6, 0.8]}
+    op = PSAOptions(np=20, ni=100, kn=0, omega=1, fi_p=0.5, fi_g=1)
+    alg = StandardPSA(op)
+    p = alg.probability_estimate(tf, op, d, ep=0.2, number_runs=100, min_flag=1)
+    print(p)
 
 
 if __name__ == '__main__':

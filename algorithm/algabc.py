@@ -1,9 +1,29 @@
 # TODO: добавить типы
+import support
+
+
 class Options:
-    def __init__(self, n, ni, kn):
-        self._number_points = n
-        self._number_iter = ni
-        self._k_noise = kn
+    _alias_map = {
+        'number_points': ['n', 'np'],
+        'number_iter': ['ni', 'iter'],
+        'k_noise': ['kn']
+    }
+    _required_keys = ('number_points', 'number_iter')
+
+    def __init__(self, **kwargs):
+        kw = support.normalize_kwargs(kwargs,
+                                      alias_map=self.__class__._alias_map,
+                                      required=self.__class__._required_keys)
+        self._number_points = kw['number_points']
+        self._number_iter = kw['number_iter']
+        self._k_noise = 0 if 'k_noise' not in kw else kw['k_noise']
+
+    def update_op(self, **kwargs):
+        kw = support.normalize_kwargs(kwargs, alias_map=self.__class__._alias_map)
+        for k, v in kw.items():
+            print(k, v)
+            if k in self.__class__._alias_map:
+                self.__setattr__(k, v)
 
     @property
     def number_points(self):
@@ -14,19 +34,19 @@ class Options:
         self._number_points = val
 
     @property
-    def ni(self):
+    def number_iter(self):
         return self._number_iter
 
-    @ni.setter
-    def ni(self, val):
+    @number_iter.setter
+    def number_iter(self, val):
         self._number_iter = val
 
     @property
-    def kn(self):
+    def k_noise(self):
         return self._k_noise
 
-    @kn.setter
-    def kn(self, val):
+    @k_noise.setter
+    def k_noise(self, val):
         self._k_noise = val
 
 
