@@ -5,28 +5,24 @@ from algorithm.algabc import GSA, Options
 from problem.testfunc import TestFunction
 
 
-_alias_map = {
-    'g_idx': ['gi', 'g_index'],  # -
-    'g_zero': ['gz'],  # +
-    'number_points': ['n', 'np'],  # +
-    'number_iter': ['ni', 'iter'],  # +
-    'k_noise': ['kn'],  # -
-    'alpha': ['a'],  # +
-    'gamma': ['g'],
-    'elite_probe': ['ep'],  # -
-    'r_norm': ['rn'],  # -
-    'r_power': ['rp'],  # -
-    'delta': ['d'],  # -
-}
-
-_required_keys = ('number_points', 'number_iter', 'g_zero', 'alpha')
-
-
 # TODO: добавить воздможность выбора метода останова (по умолчанию - итерации) среднеквадратичное откл от лучшей точки
 class GSAOptions(Options):
+    _alias_map = {
+        'g_idx': ['gi', 'g_index'],  # -
+        'g_zero': ['gz'],  # +
+        'alpha': ['a'],  # +
+        'gamma': ['g'],
+        'elite_probe': ['ep'],  # -
+        'r_norm': ['rn'],  # -
+        'r_power': ['rp'],  # -
+        'delta': ['d'],  # -
+    }
+    _required_keys = ('g_zero', 'alpha')
+
     def __init__(self, **kwargs):  # n, ni, ig, g0, alpha, gamma, ep=True, rn=2, rp=1, kn=0, delta=pow(10, -4)
-        kw = support.normalize_kwargs(kwargs, alias_map=_alias_map, required=_required_keys)
-        kn = 0 if 'k_noise' not in kw else kw['k_noise']
+        kw = support.normalize_kwargs(kwargs,
+                                      alias_map=GSAOptions._alias_map,
+                                      required=GSAOptions._required_keys)
         super().__init__(**kw)
         self._g_idx = 1 if 'g_idx' not in kw else kw['g_idx']
         self._g0 = kw['g_zero']
@@ -48,45 +44,82 @@ class GSAOptions(Options):
         else:
             ValueError('Функции с таким индексом не существует: ' + str(self._g_idx))
 
-    def __repr__(self):
-        # TODO: доделать
-        pass
+    def update_op(self, **kwargs):
+        kw = support.normalize_kwargs(kwargs, alias_map=GSAOptions._alias_map)
+        for k, v in kw.items():
+            print(k, v)
+            if k in GSAOptions._alias_map:
+                self.__setattr__(k, v)
+        super().update_op(**kw)
 
-    def __str__(self):
-        # TODO: доделать
-        pass
+    def __repr__(self):
+        return (f'GSAOptions(n={self._number_points}, ni={self._number_iter}, '
+                f'gi={self._g_idx}, gz={self._g0}, a={self._alpha}, g={self._gamma}, '
+                f'ep={self._elite_probe}, rn={self._rn}, rp={self._rp}, d={self._delta}, kn={self._k_noise})')
 
     @property
     def g0(self):
         return self._g0
 
+    @g0.setter
+    def g0(self, v):
+        self._g0 = v
+
     @property
     def alpha(self):
         return self._alpha
+
+    @alpha.setter
+    def alpha(self, v):
+        self._alpha = v
 
     @property
     def g_idx(self):
         return self._g_idx
 
+    @g_idx.setter
+    def g_idx(self, v):
+        self._g_idx = v
+
     @property
     def elite_probe(self):
         return self._elite_probe
+
+    @elite_probe.setter
+    def elite_probe(self, v):
+        self._elite_probe = v
 
     @property
     def rn(self):
         return self._rn
 
+    @rn.setter
+    def rn(self, v):
+        self._rn = v
+
     @property
     def rp(self):
         return self._rp
+
+    @rp.setter
+    def rp(self, v):
+        self._rp = v
 
     @property
     def gamma(self):
         return self._gamma
 
+    @gamma.setter
+    def gamma(self, v):
+        self._gamma = v
+
     @property
     def delta(self):
         return self._delta
+
+    @delta.setter
+    def delta(self, v):
+        self._delta = v
 
 
 class StandardGSA(GSA):
@@ -95,13 +128,10 @@ class StandardGSA(GSA):
         self._name = 'Standard GSA'
         self._full_name = 'Standard gravity search algorithm'
 
-    def gsa(self, tf, min_flag=1):
+    def optimization(self, tf, min_flag=1):
         if self._options:
             return gsa(self._options, tf, min_flag)
         raise ValueError('Не установлены параметры алгоритма')
-
-    def probability_estimate(self, tf, op, iteration: dict):
-        pass
 
 
 def initialization(n, dim, down, high):
@@ -262,23 +292,11 @@ def main():
     }
     tf = TestFunction(**TEST_FUNC_2)
 
-    ep = 0.2
-    p_list = []
-    n = [50]
-    for j in range(len(n)):
-        p = 0
-        op = GSAOptions(np=n[j], ni=50, g_idx=2, g_zero=100, alpha=20, gamma=2)
-        # op = GSAOptions(np=n[j], ni=20, g_idx=1, g_zero=100, alpha=20)
-        alg = StandardGSA(op)
-        for i in range(100):
-            x_bests, func_best, iteration, _, _ = alg.gsa(tf, min_flag=1)
-            print(x_bests, iteration)
-            if tf.in_vicinity(x_bests, epsilon=ep):
-                p += 1
-        p_list.append(p / 100.0)
-        print('Оценка вероятности', p / 100.0)
-        print('-'*20)
-    print(p_list)
+    d = {'n': [50, 60, 70, 80]}
+    op = GSAOptions(np=10, ni=50, g_idx=2, g_zero=100, alpha=20, gamma=2)
+    alg = StandardGSA(op)
+    p = alg.probability_estimate(tf, op, d, ep=0.2, number_runs=100, min_flag=1)
+    print(p)
 
 
 if __name__ == '__main__':

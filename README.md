@@ -13,5 +13,6 @@ Multi-extremal functions:
 
 1) Gravitational Search Algorithm [(standard GSA)](https://ahmetcevahircinar.com.tr/wp-content/uploads/2017/04/GSA_A_Gravitational_Search_Algorithm.pdf)
 2) Algorithm Simulated annealing [(more info)](https://en.wikipedia.org/wiki/Simulated_annealing)
+3) Particle swarm algorithm [(more info)](https://en.wikipedia.org/wiki/Particle_swarm_optimization)
 
 ## Usages

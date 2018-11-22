@@ -1,5 +1,4 @@
 import operator
-import itertools
 import numpy as np
 
 import support
@@ -11,9 +10,6 @@ class PSAOptions(Options):
         'omega': ['o'],
         'fi_p': ['fp'],
         'fi_g': ['fg'],
-        # 'number_points': ['n', 'np'],
-        # 'number_iter': ['ni', 'iter'],
-        # 'k_noise': ['kn']
     }
     _required_keys = ('omega', 'fi_p', 'fi_g')
 
@@ -24,12 +20,13 @@ class PSAOptions(Options):
         self._fi_p = kw['fi_p']
         self._fi_g = kw['fi_g']
 
-    # def update_op(self, **kwargs):
-    #     kw = support.normalize_kwargs(kwargs, alias_map=PSAOptions._alias_map)
-    #     for k, v in kw.items():
-    #         print(k, v)
-    #         if k in PSAOptions._alias_map:
-    #             self.__setattr__(k, v)
+    def update_op(self, **kwargs):
+        kw = support.normalize_kwargs(kwargs, alias_map=PSAOptions._alias_map)
+        for k, v in kw.items():
+            print(k, v)
+            if k in PSAOptions._alias_map:
+                self.__setattr__(k, v)
+        super().update_op(**kw)
 
     def __repr__(self):
         return (f'PSAOptions(number_points={self._number_points}, number_iter={self._number_iter}, '
@@ -125,30 +122,10 @@ class StandardPSA(PSO):
         self._name = 'Standard PSA'
         self._full_name = 'Standard particle swarm algorithm'
 
-    def pso(self, tf, min_flag=1):
+    def optimization(self, tf, min_flag=1):
         if self._options:
             return psa(self._options, tf, min_flag)
         raise ValueError('Не установлены параметры алгоритма')
-
-    def probability_estimate(self, tf, op, iteration: dict, ep: float=0.2, number_runs: int=100, min_flag: int=1):
-        ar = list(iteration.values())
-        size = tuple(len(i) for i in ar)
-        idxs = list(itertools.product(*(list(range(len(i))) for i in ar)))
-        items = list((dict(zip(iteration.keys(), values)) for values in itertools.product(*iteration.values())))
-        res = np.zeros(size)
-        for i in range(len(idxs)):
-            print('index:', idxs[i])
-            print('item:', items[i])
-            op.update_op(**items[i])
-            p = 0
-            for j in range(number_runs):
-                x_bests, *_ = self.pso(tf, min_flag=min_flag)
-                if tf.in_vicinity(x_bests, epsilon=ep):
-                    p += 1
-            res[idxs[i]] = p / number_runs
-            print('Оценка вероятности', res[idxs[i]])
-            print('-' * 20)
-        return res
 
 
 def psa(op, tf, min_flag):
@@ -246,8 +223,8 @@ def main():
     from problem.testfunc import TestFunction
     tf = TestFunction(**TEST_FUNC_2)
 
-    d = {'number_points': [20, 30, 40], 'omega': [0.2, 0.4, 0.6, 0.8]}
-    op = PSAOptions(np=20, ni=100, kn=0, omega=1, fi_p=0.5, fi_g=1)
+    d = {'n': [20, 30, 40], 'o': [0.2, 0.4, 0.6, 0.8]}
+    op = PSAOptions(np=10, ni=100, kn=0, omega=1, fi_p=0.5, fi_g=1)
     alg = StandardPSA(op)
     p = alg.probability_estimate(tf, op, d, ep=0.2, number_runs=100, min_flag=1)
     print(p)

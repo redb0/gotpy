@@ -1,3 +1,5 @@
+from typing import Union
+
 import numpy as np
 
 import support
@@ -16,15 +18,16 @@ class ASAOptions(Options):
 
     def __init__(self, **kwargs):
         kw = support.normalize_kwargs(kwargs,
-                                      alias_map=self.__class__._alias_map,
-                                      required=self.__class__._required_keys)
+                                      alias_map=ASAOptions._alias_map,
+                                      required=ASAOptions._required_keys)
+        print(kw)
         super().__init__(**kw)
         self._max_temp = kw['max_temp']
         self._min_temp = kw['min_temp']
         self._idx_temp_func = 1 if 'idx_temp_func' not in kw else kw['idx_temp_func']
         self._init_mode = 'rand' if 'init_mode' not in kw else kw['init_mode']
 
-    def get_temperature(self, i):
+    def get_temperature(self, i: int) -> Union[int, float]:
         t = None
         if self._idx_temp_func == 1:
             t = boltzmann_annealing(i, self._max_temp)
@@ -32,25 +35,53 @@ class ASAOptions(Options):
             t = linear_temp(i, self._max_temp)
         return t
 
+    def update_op(self, **kwargs):
+        kw = support.normalize_kwargs(kwargs, alias_map=ASAOptions._alias_map)
+        for k, v in kw.items():
+            print(k, v)
+            if k in ASAOptions._alias_map:
+                self.__setattr__(k, v)
+        super().update_op(**kw)
+
     @property
-    def max_temp(self):
+    def max_temp(self) -> Union[int, float]:
         return self._max_temp
 
+    @max_temp.setter
+    def max_temp(self, v: Union[int, float]) -> None:
+        self._max_temp = v
+
     @property
-    def min_temp(self):
+    def min_temp(self) -> Union[int, float]:
         return self._min_temp
 
+    @min_temp.setter
+    def min_temp(self, v: Union[int, float]) -> None:
+        self._min_temp = v
+
     @property
-    def init_mode(self):
+    def init_mode(self) -> str:
         return self._init_mode
 
-    def __repr__(self):
-        # TODO: доделать
-        pass
+    @init_mode.setter
+    def init_mode(self, v: str) -> None:
+        self._init_mode = v
+
+    @property
+    def idx_temp_func(self) -> int:
+        return self._idx_temp_func
+
+    @idx_temp_func.setter
+    def idx_temp_func(self, v: int) -> None:
+        self._idx_temp_func = v
+
+    def __repr__(self) -> str:
+        return (f'ASAOptions(max_t={self._max_temp}, min_t={self._min_temp}, '
+                f'itf={self._idx_temp_func}, im={self._init_mode})')
 
     def __str__(self):
-        # TODO: доделать
-        pass
+        return (f'ASAOptions(max_temp={self._max_temp}, min_temp={self._min_temp}, '
+                f'idx_temp_func={self._idx_temp_func}, init_mode={self._init_mode})')
 
 
 class StandardASA(ASA):
@@ -59,7 +90,7 @@ class StandardASA(ASA):
         self._name = 'Standard ASA'
         self._full_name = ''
 
-    def asa(self, tf, min_flag=1):
+    def optimization(self, tf, min_flag=1):  # asa
         if self._options:
             return asa(self._options, tf, min_flag)
         raise ValueError('Не установлены параметры алгоритма')
@@ -168,24 +199,12 @@ def main():
                       global_min=g_min, global_max=np.array([2, -6]), min_val=0, max_val=31.51)
     tf.generate_func()
 
-    ep = 0.2
-    p_list = []
-    temp = (350, 400, 450,  500, 550, 600)
-    for j in range(len(temp)):
-        p = 0
-        op = ASAOptions(n=0, number_iter=100, max_temp=temp[j], min_temp=0.1, idx_temp_func=2, init_mode='rand', kn=1)
-        alg = StandardASA(op)
-        it = 0
-        for i in range(100):
-            x_bests, _, i, _, _ = alg.asa(tf, min_flag=1)
-            # print(x_bests, i)
-            if (g_min[0] - ep <= x_bests[0] <= g_min[0] + ep) and (g_min[1] - ep <= x_bests[1] <= g_min[1] + ep):
-                p += 1
-        p_list.append(p / 100.0)
-        print('Оценка вероятности', p / 100.0)
-        print('Среднее количество итераций', it / 100)
-        print('-'*20)
-    print(p_list)
+    d = {'max_temp': [350, 400, 450,  500, 550, 600]}
+    op = ASAOptions(n=0, number_iter=100, max_temp=350, min_temp=0.1, idx_temp_func=2, init_mode='rand', kn=1)
+    alg = StandardASA(op)
+    p = alg.probability_estimate(tf, op, d, ep=0.2, number_runs=100, min_flag=1)
+    print(p)
+
 
 if __name__ == '__main__':
     main()

@@ -1,4 +1,8 @@
 # TODO: добавить типы
+import itertools
+
+import numpy as np
+
 import support
 
 
@@ -12,17 +16,18 @@ class Options:
 
     def __init__(self, **kwargs):
         kw = support.normalize_kwargs(kwargs,
-                                      alias_map=self.__class__._alias_map,
-                                      required=self.__class__._required_keys)
+                                      alias_map=Options._alias_map,
+                                      required=Options._required_keys)
+        print(kw)
         self._number_points = kw['number_points']
         self._number_iter = kw['number_iter']
         self._k_noise = 0 if 'k_noise' not in kw else kw['k_noise']
 
     def update_op(self, **kwargs):
-        kw = support.normalize_kwargs(kwargs, alias_map=self.__class__._alias_map)
+        kw = support.normalize_kwargs(kwargs, alias_map=Options._alias_map)
         for k, v in kw.items():
             print(k, v)
-            if k in self.__class__._alias_map:
+            if k in Options._alias_map:
                 self.__setattr__(k, v)
 
     @property
@@ -58,7 +63,29 @@ class Algorithm:
 
         self._options = op
 
-    def probability_estimate(self, *args, **kwargs):
+    def probability_estimate(self, tf, op, iteration: dict, ep: float=0.2, number_runs: int=100, min_flag: int=1,
+                             *args, **kwargs):
+        ar = list(iteration.values())
+        size = tuple(len(i) for i in ar)
+        idxs = list(itertools.product(*(list(range(len(i))) for i in ar)))
+        items = list((dict(zip(iteration.keys(), values)) for values in itertools.product(*iteration.values())))
+        res = np.zeros(size)
+        for i in range(len(idxs)):
+            print('index:', idxs[i])
+            print('item:', items[i])
+            op.update_op(**items[i])
+            print(op)
+            p = 0
+            for j in range(number_runs):
+                x_bests, *_ = self.optimization(tf, min_flag=min_flag, *args, **kwargs)
+                if tf.in_vicinity(x_bests, epsilon=ep):
+                    p += 1
+            res[idxs[i]] = p / number_runs
+            print('Оценка вероятности', res[idxs[i]])
+            print('-' * 20)
+        return res
+
+    def optimization(self, *args, **kwargs):
         pass
 
     @property
@@ -85,13 +112,11 @@ class Algorithm:
 class GSA(Algorithm):
     def __init__(self, **kwargs):
         super().__init__(class_name='GSA', **kwargs)
-        # self._class_name = 'GSA'
 
 
 class SAC(Algorithm):
     def __init__(self, **kwargs):
         super().__init__(class_name='SAC', **kwargs)
-        # self._class_name = 'SAC'
 
 
 class ASA(Algorithm):
